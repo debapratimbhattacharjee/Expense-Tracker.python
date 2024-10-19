@@ -54,3 +54,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 Contributing
 Contributions are welcome! Please create an issue or submit a pull request for any feature enhancements or bug fixes.
 
+Author 
+Debapratim Bhattacharjee
+

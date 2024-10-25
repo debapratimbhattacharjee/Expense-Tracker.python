@@ -4,25 +4,25 @@ This is a Tkinter-based desktop application designed to help you track and manag
 
 Features
 Add Expense: Input details such as item name, price, and the date of purchase.
+
 View Expense History: A table view that displays all recorded expenses.
 Update/Delete Records: Easily modify or remove records from the database.
 Calculate Total Expenses and Remaining Balance: Track your total expenditure and check your remaining balance.
 Real-time Date Setting: Automatically set the current date for easier entry of new expenses.
 Installation
-Clone the repository:
 
-bash
+
 
 cd expense-tracker
 Install required libraries:
 
-bash
-Copy code
+
+
 pip install tkinter
 Run the script:
 
-bash
-Copy code
+
+
 python expense_tracker.py
 Usage
 Add a Record: Fill in the item name, price, and date of purchase, then click "Save Record."

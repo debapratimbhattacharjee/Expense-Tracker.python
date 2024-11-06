@@ -4,164 +4,139 @@ import datetime as dt
 from mydb import *
 from tkinter import messagebox
 
-# object for database
-data = Database(db='test.db')
+class DailyExpensesApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title('Daily Expenses')
+        self.root.geometry('900x600')
+        
+        # Database object
+        self.data = Database(db='test.db')
+        
+        # Global variables
+        self.count = 0
+        self.selected_rowid = 0
+        
+        # Variables
+        self.f = ('Times new roman', 14)
+        self.namevar = StringVar()
+        self.amtvar = IntVar()
+        self.dopvar = StringVar()
+        
+        # Set up the UI
+        self.create_widgets()
+        self.fetch_records()
+        
+    def create_widgets(self):
+        # Frame for input fields
+        f1 = Frame(self.root, padx=10, pady=10, bg='#2B2B2B')
+        f1.pack(expand=True, fill=BOTH)
 
-# global variables
-count = 0
-selected_rowid = 0
+        # Labels
+        Label(f1, text='ITEM NAME', font=self.f, bg='#2B2B2B', fg='#FFFFFF').grid(row=0, column=0, sticky=W)
+        Label(f1, text='ITEM PRICE', font=self.f, bg='#2B2B2B', fg='#FFFFFF').grid(row=1, column=0, sticky=W)
+        Label(f1, text='PURCHASE DATE', font=self.f, bg='#2B2B2B', fg='#FFFFFF').grid(row=2, column=0, sticky=W)
 
-# functions
-def saveRecord():
-    global data
-    data.insertRecord(item_name=item_name.get(), item_price=item_amt.get(), purchase_date=transaction_date.get())
+        # Entry widgets
+        self.item_name = Entry(f1, font=self.f, textvariable=self.namevar, bg='#333333', fg='#FFFFFF', relief='flat')
+        self.item_amt = Entry(f1, font=self.f, textvariable=self.amtvar, bg='#333333', fg='#FFFFFF', relief='flat')
+        self.transaction_date = Entry(f1, font=self.f, textvariable=self.dopvar, bg='#333333', fg='#FFFFFF', relief='flat')
+        self.item_name.grid(row=0, column=1, sticky=EW, padx=(10, 0))
+        self.item_amt.grid(row=1, column=1, sticky=EW, padx=(10, 0))
+        self.transaction_date.grid(row=2, column=1, sticky=EW, padx=(10, 0))
 
-def setDate():
-    date = dt.datetime.now()
-    dopvar.set(f'{date:%d %B %Y}')
+        # Action buttons with color scheme
+        btn_style = {'bg': '#007BFF', 'fg': 'white', 'font': self.f, 'relief': 'flat'}
+        Button(f1, text='Current Date', command=self.set_date, **btn_style).grid(row=3, column=1, sticky=EW, padx=(10, 0))
+        Button(f1, text='Save Record', command=self.save_record, **btn_style).grid(row=0, column=2, sticky=EW, padx=(10, 0))
+        Button(f1, text='Clear Entry', command=self.clear_entries, **btn_style).grid(row=1, column=2, sticky=EW, padx=(10, 0))
+        Button(f1, text='Exit', command=self.root.destroy, bg='#DC3545', fg='white', font=self.f, relief='flat').grid(row=2, column=2, sticky=EW, padx=(10, 0))
+        Button(f1, text='Total Balance', command=self.total_balance, **btn_style).grid(row=0, column=3, sticky=EW, padx=(10, 0))
+        Button(f1, text='Update', command=self.update_record, bg='#FFC107', fg='black', font=self.f, relief='flat').grid(row=1, column=3, sticky=EW, padx=(10, 0))
+        Button(f1, text='Delete', command=self.delete_row, bg='#DC3545', fg='white', font=self.f, relief='flat').grid(row=2, column=3, sticky=EW, padx=(10, 0))
 
-def clearEntries():
-    item_name.delete(0, 'end')
-    item_amt.delete(0, 'end')
-    transaction_date.delete(0, 'end')
+        # Frame for Treeview widget
+        f2 = Frame(self.root)
+        f2.pack()
 
-def fetch_records():
-    f = data.fetchRecord('select rowid, * from expense_record')
-    global count
-    for rec in f:
-        tv.insert(parent='', index='0', iid=count, values=(rec[0], rec[1], rec[2], rec[3]))
-        count += 1
-    tv.after(400, refreshData)
+        # Treeview widget
+        self.tv = ttk.Treeview(f2, columns=(1, 2, 3, 4), show='headings', height=8)
+        self.tv.pack(side="left")
+        self.tv.column(1, anchor=CENTER, stretch=NO, width=70)
+        self.tv.column(2, anchor=CENTER)
+        self.tv.column(3, anchor=CENTER)
+        self.tv.column(4, anchor=CENTER)
+        self.tv.heading(1, text="Serial no")
+        self.tv.heading(2, text="Item Name")
+        self.tv.heading(3, text="Item Price")
+        self.tv.heading(4, text="Purchase Date")
+        self.tv.bind("<ButtonRelease-1>", self.select_record)
 
-def select_record(event):
-    global selected_rowid
-    selected = tv.focus()
-    val = tv.item(selected, 'values')
-    try:
-        selected_rowid = val[0]
-        d = val[3]
-        namevar.set(val[1])
-        amtvar.set(val[2])
-        dopvar.set(str(d))
-    except Exception as ep:
-        pass
+        # Style for Treeview
+        style = ttk.Style()
+        style.configure("Treeview.Heading", font=('Helvetica', 12, 'bold'))
+        style.configure("Treeview", background="#333333", foreground="white", rowheight=25, fieldbackground="#333333")
+        style.map("Treeview", background=[('selected', '#007BFF')], foreground=[('selected', 'white')])
 
-def update_record():
-    global selected_rowid
-    selected = tv.focus()  # Update record
-    try:
-        data.updateRecord(namevar.get(), amtvar.get(), dopvar.get(), selected_rowid)
-        tv.item(selected, text="", values=(namevar.get(), amtvar.get(), dopvar.get()))
-    except Exception as ep:
-        messagebox.showerror('Error', ep)
-    
-    # Clear entry boxes
-    item_name.delete(0, END)
-    item_amt.delete(0, END)
-    transaction_date.delete(0, END)
-    tv.after(400, refreshData)
+        # Scrollbar
+        scrollbar = Scrollbar(f2, orient='vertical')
+        scrollbar.configure(command=self.tv.yview)
+        scrollbar.pack(side="right", fill="y")
+        self.tv.config(yscrollcommand=scrollbar.set)
 
-def totalBalance():
-    f = data.fetchRecord(query="Select sum(item_price) from expense_record")
-    for i in f:
-        for j in i:
-            messagebox.showinfo('Current Balance: ', f"Total Expense: {j} \nBalance Remaining: {5000 - j}")
+    def save_record(self):
+        self.data.insertRecord(item_name=self.item_name.get(), item_price=self.item_amt.get(), purchase_date=self.transaction_date.get())
+        self.refresh_data()
 
-def refreshData():
-    for item in tv.get_children():
-        tv.delete(item)
-    fetch_records()
+    def set_date(self):
+        date = dt.datetime.now()
+        self.dopvar.set(f'{date:%d %B %Y}')
 
-def deleteRow():
-    global selected_rowid
-    data.removeRecord(selected_rowid)
-    refreshData()
+    def clear_entries(self):
+        self.item_name.delete(0, 'end')
+        self.item_amt.delete(0, 'end')
+        self.transaction_date.delete(0, 'end')
 
-# create tkinter object
-ws = Tk()
-ws.title('Daily Expenses')
-ws.geometry('900x600')  # Adjust window size
+    def fetch_records(self):
+        records = self.data.fetchRecord('select rowid, * from expense_record')
+        for rec in records:
+            self.tv.insert(parent='', index='0', iid=self.count, values=(rec[0], rec[1], rec[2], rec[3]))
+            self.count += 1
+        self.tv.after(400, self.refresh_data)
 
-# variables
-f = ('Times new roman', 14)
-namevar = StringVar()
-amtvar = IntVar()
-dopvar = StringVar()
+    def select_record(self, event):
+        selected = self.tv.focus()
+        val = self.tv.item(selected, 'values')
+        if val:
+            self.selected_rowid = val[0]
+            self.namevar.set(val[1])
+            self.amtvar.set(val[2])
+            self.dopvar.set(str(val[3]))
 
-# Frame for input fields
-f1 = Frame(ws, padx=10, pady=10, bg='#2B2B2B')  # Dark background
-f1.pack(expand=True, fill=BOTH)
+    def update_record(self):
+        try:
+            self.data.updateRecord(self.namevar.get(), self.amtvar.get(), self.dopvar.get(), self.selected_rowid)
+            self.refresh_data()
+        except Exception as ep:
+            messagebox.showerror('Error', ep)
+        self.clear_entries()
 
-# Input Labels
-Label(f1, text='ITEM NAME', font=f, bg='#2B2B2B', fg='#FFFFFF').grid(row=0, column=0, sticky=W)
-Label(f1, text='ITEM PRICE', font=f, bg='#2B2B2B', fg='#FFFFFF').grid(row=1, column=0, sticky=W)
-Label(f1, text='PURCHASE DATE', font=f, bg='#2B2B2B', fg='#FFFFFF').grid(row=2, column=0, sticky=W)
+    def total_balance(self):
+        total = self.data.fetchRecord(query="Select sum(item_price) from expense_record")
+        for i in total:
+            for j in i:
+                messagebox.showinfo('Current Balance:', f"Total Expense: {j} \nBalance Remaining: {5000 - j}")
 
-# Entry widgets
-item_name = Entry(f1, font=f, textvariable=namevar, bg='#333333', fg='#FFFFFF', relief='flat')
-item_amt = Entry(f1, font=f, textvariable=amtvar, bg='#333333', fg='#FFFFFF', relief='flat')
-transaction_date = Entry(f1, font=f, textvariable=dopvar, bg='#333333', fg='#FFFFFF', relief='flat')
+    def refresh_data(self):
+        for item in self.tv.get_children():
+            self.tv.delete(item)
+        self.fetch_records()
 
-# Place entry widgets
-item_name.grid(row=0, column=1, sticky=EW, padx=(10, 0))
-item_amt.grid(row=1, column=1, sticky=EW, padx=(10, 0))
-transaction_date.grid(row=2, column=1, sticky=EW, padx=(10, 0))
+    def delete_row(self):
+        self.data.removeRecord(self.selected_rowid)
+        self.refresh_data()
 
-# Action buttons with modern color scheme
-btn_style = {'bg': '#007BFF', 'fg': 'white', 'font': f, 'relief': 'flat'}
-
-cur_date = Button(f1, text='Current Date', command=setDate, **btn_style)
-submit_btn = Button(f1, text='Save Record', command=saveRecord, **btn_style)
-clr_btn = Button(f1, text='Clear Entry', command=clearEntries, **btn_style)
-quit_btn = Button(f1, text='Exit', command=lambda: ws.destroy(), bg='#DC3545', fg='white', font=f, relief='flat')
-total_bal = Button(f1, text='Total Balance', command=totalBalance, **btn_style)
-update_btn = Button(f1, text='Update', command=update_record, bg='#FFC107', fg='black', font=f, relief='flat')
-del_btn = Button(f1, text='Delete', command=deleteRow, bg='#DC3545', fg='white', font=f, relief='flat')
-
-# Grid placement of buttons
-cur_date.grid(row=3, column=1, sticky=EW, padx=(10, 0))
-submit_btn.grid(row=0, column=2, sticky=EW, padx=(10, 0))
-clr_btn.grid(row=1, column=2, sticky=EW, padx=(10, 0))
-quit_btn.grid(row=2, column=2, sticky=EW, padx=(10, 0))
-total_bal.grid(row=0, column=3, sticky=EW, padx=(10, 0))
-update_btn.grid(row=1, column=3, sticky=EW, padx=(10, 0))
-del_btn.grid(row=2, column=3, sticky=EW, padx=(10, 0))
-
-# Frame for Treeview widget
-f2 = Frame(ws)
-f2.pack()
-
-# Treeview widget
-tv = ttk.Treeview(f2, columns=(1, 2, 3, 4), show='headings', height=8)
-tv.pack(side="left")
-
-# Treeview column configuration
-tv.column(1, anchor=CENTER, stretch=NO, width=70)
-tv.column(2, anchor=CENTER)
-tv.column(3, anchor=CENTER)
-tv.column(4, anchor=CENTER)
-tv.heading(1, text="Serial no")
-tv.heading(2, text="Item Name")
-tv.heading(3, text="Item Price")
-tv.heading(4, text="Purchase Date")
-
-# Binding treeview selection
-tv.bind("<ButtonRelease-1>", select_record)
-
-# Style for Treeview
-style = ttk.Style()
-style.configure("Treeview.Heading", font=('Helvetica', 12, 'bold'))
-style.configure("Treeview", background="#333333", foreground="white", rowheight=25, fieldbackground="#333333")
-style.map("Treeview", background=[('selected', '#007BFF')], foreground=[('selected', 'white')])
-
-# Scrollbar
-scrollbar = Scrollbar(f2, orient='vertical')
-scrollbar.configure(command=tv.yview)
-scrollbar.pack(side="right", fill="y")
-tv.config(yscrollcommand=scrollbar.set)
-
-# Fetch records on startup
-fetch_records()
-
-# Infinite loop to run the app
-ws.mainloop()
+if __name__ == "__main__":
+    root = Tk()
+    app = DailyExpensesApp(root)
+    root.mainloop()
